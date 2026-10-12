@@ -70,7 +70,7 @@ class Engine:
                 return False
             self.by_id[m["id"]] = m
             peers = [c["id"] for c in self.by_pop
-                     if c["id"] < LIVE_ID_BASE and set(c["genres"]) & set(m["genres"])][:20]
+                     if c["id"] < LIVE_ID_BASE and (not m["genres"] or set(c["genres"]) & set(m["genres"]))][:20]
             self.neighbors[m["id"]] = {"cf": [], "cb": [(p, 0.75) for p in peers]}
             if persist:
                 live = [x for x in self.by_id.values() if x.get("src") == "live"]
@@ -101,6 +101,7 @@ class Engine:
             "id": m["id"], "title": m["title"], "year": m["year"],
             "genres": m["genres"][:3], "tags": m["tags"][:3],
             "avg": m["avg"], "n": m["n"],
+            "overview": m.get("overview"), "src": m.get("src"),
             "match": match, "reason": reason,
         }
 
@@ -214,19 +215,34 @@ class Engine:
         ]
 
     def _search_external_movies(self, q, limit=6):
-        import urllib.request, urllib.parse, re, json
+        import urllib.request, urllib.parse, urllib.error, re, json, time
         # generator=search + prop=description gives each hit a one-line label
         # ("2010 film by Christopher Nolan" vs "British-American filmmaker"),
         # which separates films from the people who make them in one request.
         url = ("https://en.wikipedia.org/w/api.php?action=query&generator=search"
                "&gsrsearch=" + urllib.parse.quote(f"{q} film") +
-               "&gsrlimit=10&prop=description&format=json")
+               "&gsrlimit=10&prop=description|extracts&exintro=1&explaintext=1"
+               "&exlimit=max&exchars=320&format=json")
         req = urllib.request.Request(url, headers={"User-Agent": "CineMatch/1.0 (student portfolio project)"})
+        cache = self.__dict__.setdefault("_ext_cache", {})
+        if q in cache:   # answered before: the films are already in the catalogue
+            return [self._card(self.by_id[i]) for i in cache[q] if i in self.by_id][:limit]
         external = []
-        existing_titles = {m["title"].lower() for m in self.by_id.values()}
+        existing = {(m["title"].lower(), m.get("year")) for m in self.by_id.values()}
+        existing_titles = {t for t, _ in existing}
+        data = None
         try:
-            with urllib.request.urlopen(req, timeout=5) as r:
-                data = json.loads(r.read().decode("utf-8"))
+            data = None
+            for attempt in range(2):   # Wikipedia answers 429 when searches arrive in a burst
+                try:
+                    with urllib.request.urlopen(req, timeout=6) as r:
+                        data = json.loads(r.read().decode("utf-8"))
+                    break
+                except urllib.error.HTTPError as e:
+                    if e.code != 429 or attempt:
+                        raise
+                    time.sleep(1.5)
+            if data is not None:
                 pages = list(data.get("query", {}).get("pages", {}).values())
                 pages.sort(key=lambda p: p.get("index", 99))
                 for idx, item in enumerate(pages):
@@ -239,8 +255,6 @@ class Engine:
                         continue
                     clean = re.sub(r"\s*\((19\d{2}|20\d{2})\s*film\)", "", title, flags=re.I).strip()
                     clean = re.sub(r"\s*\(film\)", "", clean, flags=re.I).strip()
-                    if clean.lower() in existing_titles or title.lower() in existing_titles:
-                        continue
                     snippet = (item.get("description") or "").lower()
                     # the description must describe a film, not a person or a set
                     if not re.search(r"\b(film|movie)\b", snippet):
@@ -252,40 +266,48 @@ class Engine:
                     ]):
                         continue
                     years = re.findall(r"\b(19\d{2}|20\d{2})\b", f"{title} {snippet}")
-                    year = int(years[0]) if years else 2023
+                    year = int(years[0]) if years else None
+                    # same title is fine if it is a different year (Parasite 1982 vs 2019)
+                    if (clean.lower(), year) in existing or (year is None and clean.lower() in existing_titles):
+                        continue
+                    overview = (item.get("extract") or "").strip()
+                    text = f"{snippet} {overview}".lower().replace("live-action", "").replace("live action", "")
                     genres = []
-                    for kw, g in [("action", "Action"), ("hero", "Action"), ("sci-fi", "Sci-Fi"),
+                    for kw, g in [("superhero", "Action"), ("action", "Action"), ("sci-fi", "Sci-Fi"),
                                   ("science fiction", "Sci-Fi"), ("comedy", "Comedy"), ("horror", "Horror"),
                                   ("thriller", "Thriller"), ("drama", "Drama"), ("romance", "Romance"),
-                                  ("animat", "Animation"), ("crime", "Crime"), ("adventure", "Adventure")]:
-                        if kw in snippet or kw in title.lower():
-                            if g not in genres:
-                                genres.append(g)
-                    if not genres:
-                        genres = ["Drama", "Action"]
+                                  ("romantic", "Romance"), ("animat", "Animation"), ("crime", "Crime"),
+                                  ("adventure", "Adventure"), ("fantasy", "Fantasy"), ("mystery", "Mystery"),
+                                  ("war film", "War"), ("war drama", "War"), ("musical", "Musical"),
+                                  ("western", "Western"), ("documentary", "Documentary")]:
+                        if kw in text and g not in genres:
+                            genres.append(g)
                     # crc32, not hash(): ids must survive a restart so saved ratings hold
-                    mid = LIVE_ID_BASE + zlib.crc32(clean.lower().encode()) % 90_000
-                    while mid in self.by_id and self.by_id[mid]["title"].lower() != clean.lower():
+                    mid = LIVE_ID_BASE + zlib.crc32(f"{clean.lower()}|{year}".encode()) % 90_000
+                    while mid in self.by_id and (self.by_id[mid]["title"].lower(), self.by_id[mid].get("year")) != (clean.lower(), year):
                         mid += 1
-                    pop_val = max(4.8 - idx * 0.2, 3.5)
                     m = {
                         "id": mid,
                         "title": clean,
                         "year": year,
                         "genres": genres[:3],
-                        "tags": ["cinema", "popular"],
-                        "avg": 4.15,
-                        "n": 100,
-                        "pop": pop_val,
+                        "tags": [],
+                        "avg": None,      # no rating data for films newer than MovieLens
+                        "n": 0,
+                        "pop": max(4.8 - idx * 0.2, 3.5),
+                        "overview": overview or None,
                         "src": "live",
                     }
                     self._register_live(m)
+                    existing.add((clean.lower(), year))
                     existing_titles.add(clean.lower())
                     external.append(self._card(m))
                     if len(external) >= limit:
                         break
         except Exception:
-            pass
+            data = None
+        if data is not None:   # only remember real answers, never a failed lookup
+            cache[q] = [c["id"] for c in external]
         return external
 
     def search(self, q, n=20):

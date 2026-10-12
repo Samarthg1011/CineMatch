@@ -190,7 +190,7 @@
     line.className = "card-line";
     const g = document.createElement("span");
     g.className = "g";
-    g.textContent = `${(m.genres || [])[0] || ""}${m.year ? " · " + m.year : ""} · ★${m.avg}`;
+    g.textContent = `${(m.genres || [])[0] || ""}${m.year ? " · " + m.year : ""}${m.avg != null ? " · ★" + m.avg : ""}`;
     line.appendChild(g);
     line.appendChild(watchBtn(m));
     body.appendChild(line);
@@ -262,7 +262,7 @@
         `<span class="match">${hero.match}% Match</span><span>·</span>` +
         `<span>${hero.year ?? ""}</span><span>·</span>` +
         `<span>${(hero.genres || []).join(" · ")}</span><span>·</span>` +
-        `<span class="imdb">★ ${hero.avg} (${hero.n})</span>`;
+        (hero.avg != null ? `<span class="imdb">★ ${hero.avg} (${hero.n})</span>` : `<span class="imdb">New release</span>`);
       $("heroTags").textContent = (hero.tags || []).join(" / ");
       $("heroRate").onclick = () => openMovie(hero);
       $("heroSimilar").onclick = () => openMovie(hero);
@@ -399,8 +399,8 @@
     mp.classList.remove("has-img");
     $("mmTitle").textContent = m.title;
     $("mmMeta").textContent =
-      `${m.year ?? ""} · ${(m.genres || []).join(" · ")} · ★${m.avg} from ${m.n ?? "—"} ratings`;
-    $("mmReason").textContent = m.reason || (m.tags || []).join(" / ") || "In the CineMatch catalog";
+      `${m.year ?? ""}${(m.genres || []).length ? " · " + m.genres.join(" · ") : ""}${m.avg != null ? ` · ★${m.avg} from ${m.n ?? "—"} ratings` : " · newer than the MovieLens ratings data"}`;
+    $("mmReason").textContent = m.reason || m.overview || (m.tags || []).join(" / ") || "In the CineMatch catalog";
     const starsHost = $("mmStars");
     starsHost.innerHTML = "";
     starsHost.appendChild(starRow(m.id, "lg"));
@@ -475,7 +475,7 @@
         t.innerHTML = "<b></b><small></small>";
         t.querySelector("b").textContent = m.title;
         t.querySelector("small").textContent =
-          `${m.year ?? ""} · ${(m.genres || []).join(", ")} · ★${m.avg}`;
+          `${m.year ?? ""}${(m.genres || []).length ? " · " + m.genres.join(", ") : ""}${m.avg != null ? " · ★" + m.avg : ""}`;
         b.append(chip, t);
         b.onclick = () => { sResults.hidden = true; sInput.value = ""; openMovie(m); };
         sResults.appendChild(b);
