@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineMatch — Movies, matched to you</title>
+<meta name="description" content="CineMatch — a hybrid movie recommendation engine by Samarth Galande. Rate movies, get personal picks with explanations.">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<meta property="og:title" content="CineMatch — Movies, matched to your taste">
+<meta property="og:description" content="A hybrid movie recommendation engine by Samarth Galande. Collaborative filtering + TF-IDF content similarity over 100,000 ratings.">
+<meta property="og:image" content="/screenshot.svg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CineMatch — Hybrid Movie Recommender">
+<meta name="twitter:description" content="Personalized movie recommendations powered by Python, Scikit-learn, and Vanilla JS.">
+<meta name="twitter:image" content="/screenshot.svg">
+<meta name="author" content="Samarth Galande">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+
+<nav class="nav">
+  <a class="logo" href="#" data-nav="foryou">CINE<span>MATCH</span></a>
+  <div class="links">
+    <button class="navlink active" data-nav="foryou">For You</button>
+    <button class="navlink" data-nav="discover">Discover</button>
+    <button class="navlink" data-nav="watchlist">Watchlist <span class="pill" id="watchCount">0</span></button>
+    <button class="navlink" data-nav="ratings">My Ratings <span class="pill" id="rateCount">0</span></button>
+  </div>
+  <div class="searchbox" id="searchBox">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="searchInput" type="search" placeholder="Search movies…" autocomplete="off" aria-label="Search movies">
+    <div class="search-results" id="searchResults" hidden></div>
+  </div>
+  <div class="avatar" title="Samarth Galande">SG</div>
+</nav>
+
+<main>
+
+  <!-- ============ FOR YOU ============ -->
+  <section class="view" id="view-foryou">
+    <div class="hero" id="hero" hidden>
+      <div class="hero-art" id="heroArt" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <span class="because" id="heroReason"></span>
+        <h1 id="heroTitle"></h1>
+        <div class="meta" id="heroMeta"></div>
+        <p class="hero-tags" id="heroTags"></p>
+        <div class="ctas">
+          <button class="btn btn-red" id="heroRate">★&nbsp; Rate this</button>
+          <button class="btn btn-ghost" id="heroWatch">＋&nbsp; Watchlist</button>
+          <button class="btn btn-ghost" id="heroSimilar">≈&nbsp; More like this</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cold-hero" id="coldHero" hidden>
+      <h1>Movies, matched<br>to <span>your taste</span>.</h1>
+      <p>CineMatch learns from your ratings — hybrid collaborative + content-based filtering over 100,000 real ratings. Rate a few movies and watch the picks sharpen.</p>
+      <button class="btn btn-red" id="coldStart">★&nbsp; Rate your first movies</button>
+    </div>
+
+    <div class="rails" id="rails"></div>
+  </section>
+
+  <!-- ============ DISCOVER ============ -->
+  <section class="view" id="view-discover" hidden>
+    <div class="view-head">
+      <h2>Discover</h2>
+      <p class="sub">Filter the catalog by genre or mood — ranked by your taste profile.</p>
+    </div>
+    <div class="chiprow" id="genreChips"></div>
+    <div class="chiprow moods" id="moodChips"></div>
+    <div class="grid" id="discoverGrid"></div>
+  </section>
+
+  <!-- ============ WATCHLIST ============ -->
+  <section class="view" id="view-watchlist" hidden>
+    <div class="view-head">
+      <h2>Watchlist</h2>
+      <p class="sub">Saved for later. Stored in your browser.</p>
+    </div>
+    <div class="grid" id="watchGrid"></div>
+    <p class="empty" id="watchEmpty">Nothing saved yet — hit ＋ on any movie.</p>
+  </section>
+
+  <!-- ============ RATINGS ============ -->
+  <section class="view" id="view-ratings" hidden>
+    <div class="view-head">
+      <h2>My Ratings <span class="count-inline" id="ratingsTotal"></span></h2>
+      <p class="sub">The engine retrains its picks on every change.</p>
+      <button class="btn btn-ghost btn-sm" id="clearRatings">Clear all ratings</button>
+    </div>
+    <div class="rate-list" id="ratingsList"></div>
+    <p class="empty" id="ratingsEmpty">No ratings yet — the engine is flying blind.</p>
+  </section>
+
+  <footer class="foot">
+    <span>CINEMATCH — HYBRID RECOMMENDER (ITEM-ITEM CF 0.65 + TF-IDF CONTENT 0.35)</span>
+    <span id="footMeta"></span>
+    <span>BUILT BY <a href="https://github.com/samarthgalande" target="_blank" rel="noopener noreferrer" style="color: #E50914; text-decoration: none; font-weight: 700;">SAMARTH GALANDE</a> · PYTHON · FLASK · SCIKIT-LEARN</span>
+  </footer>
+</main>
+
+<!-- ============ ONBOARDING MODAL ============ -->
+<div class="modal" id="onboardModal" hidden>
+  <div class="modal-card wide">
+    <div class="modal-head">
+      <div>
+        <h3>Rate movies you've seen</h3>
+        <p class="sub">3+ ratings unlock personal recommendations. The more you rate, the sharper it gets.</p>
+      </div>
+      <button class="x" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="onboard-grid" id="onboardGrid"></div>
+    <div class="modal-foot">
+      <span id="onboardCount">0 rated</span>
+      <button class="btn btn-red" id="onboardDone" disabled>Show my picks →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MOVIE MODAL ============ -->
+<div class="modal" id="movieModal" hidden>
+  <div class="modal-card">
+    <div class="mm-poster" id="mmPoster"></div>
+    <div class="modal-head">
+      <div>
+        <h3 id="mmTitle"></h3>
+        <p class="sub" id="mmMeta"></p>
+      </div>
+      <button class="x" data-close aria-label="Close">✕</button>
+    </div>
+    <p class="mm-reason" id="mmReason"></p>
+    <div class="mm-controls">
+      <div class="stars lg" id="mmStars" role="radiogroup" aria-label="Your rating"></div>
+      <button class="btn btn-ghost btn-sm" id="mmWatch">＋ Watchlist</button>
+    </div>
+    <h4 class="mm-sub">More like this</h4>
+    <div class="mm-similar" id="mmSimilar"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

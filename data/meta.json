@@ -1,0 +1,28 @@
+{
+  "n_movies": 9742,
+  "n_ratings": 100836,
+  "n_users": 610,
+  "genres": [
+    "Action",
+    "Adventure",
+    "Animation",
+    "Children",
+    "Comedy",
+    "Crime",
+    "Documentary",
+    "Drama",
+    "Fantasy",
+    "Film-Noir",
+    "Horror",
+    "IMAX",
+    "Musical",
+    "Mystery",
+    "Romance",
+    "Sci-Fi",
+    "Thriller",
+    "War",
+    "Western"
+  ],
+  "dataset": "MovieLens ml-latest-small",
+  "built_at": "2026-07-29 12:52"
+}

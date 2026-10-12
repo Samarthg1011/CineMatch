@@ -1,0 +1,7 @@
+data/raw/
+__pycache__/
+*.pyc
+.venv/
+mockups/
+screenshot.*
+data/live_titles.json

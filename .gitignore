@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+data/raw/
+.venv/
+data/live_titles.json

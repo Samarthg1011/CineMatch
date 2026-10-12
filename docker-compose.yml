@@ -1,0 +1,19 @@
+# Serves cinematch on the shared web_proxy network, where the Cloudflare tunnel (cloudflared) can reach it.
+# Tunnel route:  <your-hostname>  ->  http://cinematch:8000
+# Build and start:  docker compose up -d --build
+services:
+  app:
+    build: .
+    image: cinematch:latest
+    container_name: cinematch
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8086:8000"   # local preview only: http://localhost:8086
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    networks:
+      - web_proxy
+
+networks:
+  web_proxy:
+    external: true
